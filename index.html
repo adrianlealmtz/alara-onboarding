@@ -14,7 +14,7 @@
    centered, while every screen's text and controls share one left-aligned column. */
 :root {
   --outer: #FFFFFF;
-  --sheet: #FFFFFF;
+  --sheet: #F0F0F7;          /* page background of every light screen (iOS grouped bg); html, body, Safari edges follow it */
   --surface: #FFFFFF;
   --fg: #1D1D1F;
   --fg-2: #6E6E73;
@@ -527,7 +527,7 @@ body {
 .tc-panel {
   position: absolute; left: 0; right: 0; top: 10px; bottom: 0;
   display: flex; flex-direction: column;
-  background: var(--sheet);
+  background: var(--surface);   /* modal sheet = white surface over the page */
   border-radius: 34px 34px 0 0;
   box-shadow: 0 -1px 0 var(--hairline), 0 -8px 30px rgba(0,0,0,0.08);
 }
@@ -790,7 +790,11 @@ body {
    Motion: 8 / 11 / 13 / 15s ease-in-out loops, offsets in container units (cqw/cqh, so they
    scale with the screen); first and last keyframes identical (seamless); negative delays start
    every light mid-move, so it already drifts in the first seconds and is lit from frame one. */
-.ambient-bg { position: absolute; inset: 0; z-index: 0; overflow: hidden; pointer-events: none; background: #0B0B0B; container-type: size; }
+.ambient-bg { position: absolute; inset: 0; z-index: 0; overflow: hidden; pointer-events: none; background: #0B0B0B; container-type: size;
+  /* Safari can only extend a SOLID colour behind its status bar / toolbar (the .edge strips), so
+     the light fades to exactly that #0B0B0B where the page meets them — no visible band. */
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 64px, #000 calc(100% - 96px), transparent 100%);
+          mask-image: linear-gradient(to bottom, transparent 0, #000 64px, #000 calc(100% - 96px), transparent 100%); }
 .ambient-bg i { position: absolute; display: block; border-radius: 50%; will-change: transform; backface-visibility: hidden; }
 .ambient-bg .amb-main {   /* Azul Alara — top, behind the card */
   width: 120cqw; height: 120cqw; left: -5cqw; top: -28cqw; opacity: 0.45;
