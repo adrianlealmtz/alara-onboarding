@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#000000">
 <title>Pase Digital</title>
-<meta name="alara-master-version" content="1.4.7">
+<meta name="alara-master-version" content="1.5.0">
 <script>
 /* =========================================================
    ALARA MASTER TEMPLATE — client loader.
@@ -249,6 +249,10 @@ body {
   -webkit-appearance: none; appearance: none;
 }
 .input-wrap input:-webkit-autofill { border-radius: 0; }
+/* iOS draws the text caret natively, outside the page's compositing: while the screen that just
+   received focus is still sliding in, the caret trails behind the field and jumps when the slide
+   lands. It stays the native caret, only invisible until the push has landed (keyboard stays up). */
+.screen.caret-hold input { caret-color: transparent; }
 /* Birth date — three of the same field boxes (Día · Mes · Año). Each holds a native <select>
    laid transparently over its own label, so the tap opens the system picker (wheel on iOS, list
    on Android) while the box keeps the onboarding's look. 17px select: no zoom on focus in iOS. */
@@ -1084,6 +1088,13 @@ body {
    Nothing here changes the intro's own geometry during a push: its size and position are the
    same from the tap on Comenzar until it is off screen. */
 html.intro-edges .edge-top, html.intro-edges .edge-bottom { visibility: hidden; }
+/* While the intro is on screen (and during the push away from it) the sheet clips only the sides
+   and the bottom: the intro photos extend behind the status bar. Same box, same layout. */
+/* …and the screen arriving from (or going back to) the intro brings its own colour up into that band,
+   so the photo never shows above another screen during the push. */
+html.intro-edges .screen:not(.is-video-intro)::before { content: ""; position: absolute; left: 0; right: 0; bottom: 100%;
+  height: env(safe-area-inset-top, 0px); background: inherit; pointer-events: none; }
+html.intro-edges .sheet { overflow: visible; -webkit-clip-path: inset(calc(-1 * env(safe-area-inset-top, 0px)) 0 0 0); clip-path: inset(calc(-1 * env(safe-area-inset-top, 0px)) 0 0 0); }
 .app.intro-bleed { max-width: none; }
 .app.intro-bleed .screen.is-video-intro .content,
 .app.intro-bleed .screen.is-video-intro .footer { width: 100%; max-width: 430px; margin-left: auto; margin-right: auto; }
@@ -1151,7 +1162,11 @@ html.intro-edges .edge-top, html.intro-edges .edge-bottom { visibility: hidden; 
              img + .is-pass (the pass, mapped onto the phone screen with a matrix3d homography)
        .is-shade  fixed bottom gradient for the text (does not fade with the photos)
    Only opacity and transform animate (Web Animations, created once, looping forever). */
-.is-show { position: absolute; inset: 0; z-index: 0; overflow: hidden; background: #000; pointer-events: none; }
+/* Full-bleed: the page surface (.sheet) starts below the top safe area (the status bar in Safari 26),
+   so the photo layer reaches up by exactly that inset — its top is the physical top of the screen.
+   The sheet lets it through only while the intro is on screen (html.intro-edges, below). The text,
+   the button and the screen box itself do not move. */
+.is-show { position: absolute; left: 0; right: 0; bottom: 0; top: calc(-1 * env(safe-area-inset-top, 0px)); z-index: 0; overflow: hidden; background: #000; pointer-events: none; }
 .is-fit { position: absolute; left: 0; top: 0; width: 851px; height: 1848px; transform-origin: 0 0; }
 .is-scene { position: absolute; inset: 0; opacity: 0; will-change: opacity; }
 .is-zoom { position: absolute; inset: 0; transform-origin: 425.5px 924px; will-change: transform; backface-visibility: hidden; }
@@ -1188,6 +1203,12 @@ html.intro-edges .edge-top, html.intro-edges .edge-bottom { visibility: hidden; 
   overflow-wrap: break-word;
 }
 .screen.is-video-intro .hero-line { display: block; text-wrap: balance; }   /* no one-word orphan lines */
+/* Rotating hero titles: all three share ONE grid cell, so the title box is always as tall as the
+   tallest of them at the current width (no JS measuring, no absolute positioning) — the description
+   and Comenzar never move when the title changes. Only opacity and transform animate. */
+.hero-rot { display: grid; align-items: end; }   /* a shorter title sits on the description, the spare line goes above it */
+.hero-rot > span { grid-area: 1 / 1; display: block; text-wrap: balance; }
+.hero-rot > span:not(.is-on) { opacity: 0; }
 /* Welcome block: eyebrow → title → description (client + Alara) */
 .intro-eyebrow {
   margin: 0 0 10px; color: #A1A1A6;
@@ -1371,6 +1392,8 @@ const MASTER_DEFAULTS = {
   // Universal copy: valid for NFC and QR programs alike.
   welcomeEyebrow: "BIENVENIDO",
   welcomeTitle: "Tu próxima experiencia comienza aquí.",
+  // Intro hero titles (global Alara copy), shown in this order and looped: 2.5 s each + 0.4 s change
+  welcomeTitles: ["Tu próxima experiencia comienza aquí.", "Tu pase digital. Siempre contigo.", "Tu próxima recompensa te espera."],
   welcomeSubtitle: "Con {CLIENT} y Alara, crea tu pase digital y llévalo contigo en Apple Wallet o Google Wallet.",
   declinedTitle: "Necesitamos tu autorización",
   declinedSubtitle: "Para crear tu Pase Digital y activar tus beneficios, es necesario que aceptes los Términos y Condiciones del programa. Puedes revisarlos nuevamente antes de continuar.",
@@ -1463,8 +1486,11 @@ const MASTER_DEFAULTS = {
    1.4.4  Wide viewports (≥ 431px, e.g. Pro Max 440): the 430px column is kept during the intro push, no 5px / 6px snap at its end
    1.4.5  Membresía: texts and buttons fade in together at 600–900 ms (independent of the pass) · Terms sheet starts 16–24px below the top · Conoce Alara copy
    1.4.6  Client sync audit: neutral fallback pass colour (no client value); a client that is also a "Conoce Alara" example brand is not shown twice
-   1.4.7  Safari 26 edges: strips are real fixed elements (not ::after) · Terms + client terms: bottom edge = the sheet colour · diagnostic mode (?diag=1) */
-const ALARA_MASTER_VERSION = "1.4.7";
+   1.4.7  Safari 26 edges: strips are real fixed elements (not ::after) · Terms + client terms: bottom edge = the sheet colour · diagnostic mode (?diag=1)
+   1.4.8  Intro photos behind the status bar: the slideshow layer reaches the physical top (top safe area), text and button unchanged
+   1.4.9  Typing: native caret hidden while a focused field slides in (no trailing / jump) · pass name updated once per frame
+   1.5.0  Intro: three rotating hero titles (2.5 s + 0.4 s, independent of the slideshow), fixed title box */
+const ALARA_MASTER_VERSION = "1.5.0";
 
 /* ---------- Active client: clients/<slug>/config.js → clientConfig ----------
    A client config has only the simple fields below (plus an optional "advanced" block that can
@@ -2025,6 +2051,8 @@ function applyPassConfig(p) {
   pass.hnr.hidden = !p.showHoldNearReader;
   pass.hnrLabel.textContent = p.holdNearReaderLabel;
 }
+let passNameFrame = 0;   // typing: the pass name (and its measuring) runs once per frame, after the keystroke is painted
+function schedulePassName() { if (!passNameFrame) passNameFrame = requestAnimationFrame(() => { passNameFrame = 0; renderPassName(); }); }
 function renderPassName() {
   const fullName = [formData.firstName, formData.lastName].map(v => v.trim()).filter(Boolean).join(" ");
   const el = pass.name;
@@ -2091,6 +2119,8 @@ const mock = document.getElementById("mock");
 const mockInner = document.getElementById("mockInner");
 const backBtn = document.getElementById("back");
 function withClient(text) { return esc(text).replace(/\{CLIENT\}/g, esc(clientConfig.clientName)); }
+const HERO_ROT = { hold: 2500, change: 400, rise: 10, ease: "cubic-bezier(0.22, 1, 0.36, 1)" };
+const heroRot = { items: [], idx: 0, timer: 0, gen: 0, anims: [] };   // declared before the screens are built (HeroRotation, below)
 function welcomeHeroMarkup() { return withClient(clientConfig.welcomeTitle); }
 const ARROW_SVG = `<svg class="cta-arrow" viewBox="0 0 16 16" aria-hidden="true"><path d="M3 8h9.2M8.6 3.9 12.7 8l-4.1 4.1" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
 const el = (tag, cls, html) => { const n = document.createElement(tag); if (cls) n.className = cls; if (html != null) n.innerHTML = html; return n; };
@@ -2184,11 +2214,16 @@ function placeIntroPass(sc) {
    then lift it if needed so the card — at its largest zoom — stays clear of the text. */
 function fitIntroShow() {
   const r = introShow.root, f = introShow.fit; if (!r || !f) return;
-  const W = r.clientWidth, H = r.clientHeight; if (!W || !H) return;
-  const P = INTRO_SHOW.photo, s = Math.max(W / P.w, H / P.h);
+  // The layer reaches `inset` px above the screen box (the top safe area). The framing is computed
+  // exactly as before on the screen box (H), then expressed in the layer's coordinates (+inset);
+  // the photo moves up only if its top would not reach the physical top of the screen.
+  const W = r.clientWidth, Hl = r.clientHeight; if (!W || !Hl) return;
+  const inset = Math.max(0, Math.round(r.closest(".screen").getBoundingClientRect().top - r.getBoundingClientRect().top));
+  const H = Hl - inset;
+  const P = INTRO_SHOW.photo, s = Math.max(W / P.w, Hl / P.h);   // covers the whole layer (= H when there is no inset)
   let ox = (W - P.w * s) / 2, oy = (H - P.h * s) / 2;
   const form = r.closest("form"), first = form && form.querySelector('[data-intro-step="1"]');
-  const textTop = first ? first.getBoundingClientRect().top - r.getBoundingClientRect().top : H * 0.62;
+  const textTop = first ? first.getBoundingClientRect().top - r.getBoundingClientRect().top - inset : H * 0.62;
   const zMax = 1 + INTRO_SHOW.zoomPerSecond * 80 / INTRO_SHOW.fps;
   const zy = y => P.cy + (y - P.cy) * zMax;                                 // a photo y at the largest zoom
   const cardBottom = Math.max(...INTRO_SHOW.scenes.map(sc => zy(Math.max(...sc.quad.map(p => p[1])))));
@@ -2197,8 +2232,9 @@ function fitIntroShow() {
   if (over > 0) oy = Math.max(H - P.h * s, oy - over);                     // never uncover the bottom
   if (oy + cardTop * s < 0)                                                // very wide / short screens (landscape): keep the card on screen, centred
     oy = Math.min(0, Math.max(H - P.h * s, H / 2 - (cardTop + cardBottom) / 2 * s));
+  oy = Math.min(0, oy + inset);                                            // layer coordinates; top always covered
   f.style.transform = `translate(${ox.toFixed(2)}px, ${oy.toFixed(2)}px) scale(${s.toFixed(5)})`;
-  r.style.setProperty("--shade-top", Math.max(0, textTop - 170).toFixed(0) + "px");
+  r.style.setProperty("--shade-top", Math.max(0, textTop + inset - 170).toFixed(0) + "px");
   introShow.scenes.forEach(placeIntroPass);
 }
 /* The loop: one infinite Web Animation per layer, all with the same duration, created together. */
@@ -2790,7 +2826,7 @@ const screenEls = screens.map((s, i) => {
   if (s.featured) spacer.append(buildFeaturedDemo());
   const heroEl = el("h1", "hero", s.title), subEl = el("p", "sub", s.subtitle);
   content.append(heroEl, subEl);
-  if (s.id === "welcome") { heroEl.dataset.introStep = "2"; subEl.dataset.introStep = "3"; }
+  if (s.id === "welcome") { heroEl.dataset.introStep = "2"; subEl.dataset.introStep = "3"; buildHeroRotation(heroEl); }
   if (s.walletData) subEl.after(el("p", "wd-path", esc(clientConfig.walletDataPath)));
   if (s.walletData) {
     heroEl.insertAdjacentHTML("beforebegin", antennaMarkup());
@@ -2895,13 +2931,13 @@ const screenEls = screens.map((s, i) => {
         }
       }
       formData[s.field] = input.value;               // while editing from review this is a draft (see nav.editing)
-      if (s.field === "firstName" || s.field === "lastName") renderPassName();
+      if (s.field === "firstName" || s.field === "lastName") schedulePassName();   // once per frame, never inside the keystroke
       if (wrap.classList.contains("invalid") && !s.validate(input.value)) clearError();
       if (s.hint && !wrap.classList.contains("invalid")) {
         const h = s.hint(input.value);
         err.classList.toggle("is-hint", !!h);
         err.classList.toggle("show", !!h);
-        if (h) err.innerHTML = "<span>" + h + "</span>";
+        if (h && err.dataset.hint !== h) { err.dataset.hint = h; err.innerHTML = "<span>" + h + "</span>"; }   // rewritten only when the hint changes
       }
     });
   }
@@ -2947,7 +2983,7 @@ const screenEls = screens.map((s, i) => {
     if (s.field) {
       const msg = s.validate(input.value);
       if (msg) {
-        err.innerHTML = ERROR_ICON + "<span>" + msg + "</span>";
+        err.innerHTML = ERROR_ICON + "<span>" + msg + "</span>"; delete err.dataset.hint;
         err.classList.remove("is-hint");
         err.classList.add("show");
         wrap.classList.add("invalid");
@@ -3471,6 +3507,7 @@ function afterTransition(fromIdx) {
     const onIntro = !!screens[currentIdx()].videoIntro;
     document.documentElement.classList.toggle("intro-edges", onIntro);   // strips back only once the intro is gone
     setIntroBleed(onIntro);
+    requestAnimationFrame(() => document.querySelectorAll(".caret-hold").forEach(n => n.classList.remove("caret-hold")));   // push landed: caret back
   }, (screens[fromIdx].modal || screens[currentIdx()].modal ? 480 : DUR()) + 20);
 }
 /* Full-width intro on wide viewports; switched once the push has landed, so nothing jumps mid-slide.
@@ -3489,6 +3526,7 @@ function onScreenShown(i, fromIdx) {
   document.documentElement.classList.toggle("on-intro", !!screens[i].videoIntro);
   useSafariEdgeBackground(i);                                       // Safari top/bottom bars follow the screen
   if (screens[i].videoIntro) { setIntroBleed(true); syncIntroPass(); fitIntroVisual(); document.documentElement.classList.add("intro-edges"); }
+  if (screens[i].videoIntro) { if (introEntrance.state === "done") heroRotSchedule(); } else heroRotStop();   // titles loop only while the intro is on screen
   setIntroShowPlaying(!!screens[i].videoIntro && !document.hidden);   // the photos loop only while the intro is on screen
   app.classList.toggle("on-panel", isSheet(i));
   // the pass follows the active step. Coming from the intro (where the pass stage is hidden) it is
@@ -3567,6 +3605,7 @@ function pushTo(toIdx, opts) {
   to.classList.add("is-current");
   if (handoff) {                                  // keyboard continuity: the field is visible now (visibility follows is-current)
     to.removeAttribute("inert");                  // focusable before the previous field goes inert
+    to.classList.add("caret-hold");               // native caret hidden while the field slides (see .caret-hold)
     handoff.focus({ preventScroll: true });       // same tap / Return key: iOS keeps the keyboard up
   }
   try { history.pushState({ depth: nav.stack.length }, ""); } catch (_) {}
@@ -4078,6 +4117,52 @@ document.addEventListener("touchstart", () => {}, { passive: true }); // enables
    two frames so the 0 state is really painted → the sequence starts; fill "backwards" holds each
    element hidden until its own start. Once per page load; reduced motion: no animation.
    ========================================================= */
+/* =========================================================
+   HeroRotation — the Intro's three titles (MASTER_DEFAULTS.welcomeTitles), looped 1 → 2 → 3 → 1.
+   Each stays 2.5 s, then a 400 ms change: the outgoing title fades out rising 10 px, the incoming
+   one fades in from 10 px below, both at once (cubic-bezier(0.22, 1, 0.36, 1)). Independent of the
+   slideshow (its own single timer). The first hold starts once the title's own entrance has ended;
+   the loop runs only while the intro is on screen (paused when leaving, resumed on Back with the
+   title that was showing — never a flash of another one). Reduced motion: the first title only.
+   ========================================================= */
+
+function buildHeroRotation(h1) {
+  const titles = (clientConfig.welcomeTitles && clientConfig.welcomeTitles.length) ? clientConfig.welcomeTitles : [clientConfig.welcomeTitle];
+  h1.textContent = "";
+  h1.classList.add("hero-rot");
+  heroRot.items = titles.map((t, i) => {
+    const span = el("span", i === 0 ? "is-on" : "", withClient(t));
+    if (i) span.setAttribute("aria-hidden", "true");
+    h1.append(span);
+    return span;
+  });
+}
+function heroRotStop() { clearTimeout(heroRot.timer); heroRot.timer = 0; heroRot.gen++; }   // gen: any older callback becomes a no-op (one loop only)
+function heroRotSchedule() {
+  heroRotStop();
+  if (heroRot.items.length < 2 || reduceMotion.matches || !screens[currentIdx()].videoIntro) return;
+  const gen = heroRot.gen;
+  heroRot.timer = setTimeout(() => heroRotNext(gen), HERO_ROT.hold);
+}
+function heroRotNext(gen) {
+  if (gen !== heroRot.gen) return;
+  heroRot.timer = 0;
+  if (!screens[currentIdx()].videoIntro) return;
+  const out = heroRot.items[heroRot.idx];
+  heroRot.idx = (heroRot.idx + 1) % heroRot.items.length;
+  const inn = heroRot.items[heroRot.idx];
+  heroRot.anims.forEach(a => a.cancel()); heroRot.anims = [];
+  out.classList.remove("is-on"); out.setAttribute("aria-hidden", "true");
+  inn.classList.add("is-on"); inn.removeAttribute("aria-hidden");
+  if (Element.prototype.animate) {
+    const o = { duration: HERO_ROT.change, easing: HERO_ROT.ease };
+    heroRot.anims.push(
+      out.animate([{ opacity: 1, transform: "translate3d(0, 0, 0)" }, { opacity: 0, transform: `translate3d(0, ${-HERO_ROT.rise}px, 0)` }], o),
+      inn.animate([{ opacity: 0, transform: `translate3d(0, ${HERO_ROT.rise}px, 0)` }, { opacity: 1, transform: "translate3d(0, 0, 0)" }], o));
+  }
+  heroRot.timer = setTimeout(() => heroRotNext(gen), HERO_ROT.change + HERO_ROT.hold);   // next change: after this one + the hold
+}
+
 const INTRO_TIMELINE = [                                      // per data-intro-step (0 = the photos: IntroShow)
   null,
   { start: 600,  y: 30, rise: 650, riseEase: "cubic-bezier(0.16, 1, 0.3, 1)", fadeDelay: 30, fade: 420, fadeEase: "cubic-bezier(0.1, 0.05, 0.6, 0.8)" },   // BIENVENIDO
@@ -4097,6 +4182,7 @@ function finishIntroEntrance() {
   introEntrance.anims = [];
   introEntrance.state = "done";
   app.classList.remove("intro-entering", "intro-playing");
+  heroRotSchedule();                                      // title fully in: its first 2.5 s hold starts now
 }
 function playIntroEntrance() {
   if (introEntrance.state !== "waiting") return;
