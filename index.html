@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#000000">
 <title>Pase Digital</title>
-<meta name="alara-master-version" content="1.5.0">
+<meta name="alara-master-version" content="1.5.1">
 <script>
 /* =========================================================
    ALARA MASTER TEMPLATE — client loader.
@@ -108,6 +108,17 @@
 }
 
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+/* ---------- Status-bar bleed (iPhone Safari) ----------
+   Safari 26 does not give the page the area behind the status bar: at scroll position 0 it paints
+   that band itself with a solid colour (the page background — black on the intro). It shows real
+   page pixels there only when the document is scrolled. So on iPhone Safari the document is made
+   exactly --top-bleed taller, with that band ABOVE the app (body padding), and kept scrolled by
+   --top-bleed: the app sits where it always did, and the band behind the status bar is real page —
+   the intro photo on the intro, the screen's own colour elsewhere. --top-reach = how far above the
+   page surface the intro photo has to reach (safe area + bleed). */
+:root { --top-bleed: 0px; --top-reach: calc(env(safe-area-inset-top, 0px) + var(--top-bleed)); }
+html.top-bleed { --top-bleed: 62px; }
+html.top-bleed body { height: calc(100% + var(--top-bleed)); height: calc(100dvh + var(--top-bleed)); padding-top: var(--top-bleed); }
 html { height: 100%; box-sizing: border-box; padding: 0; background: var(--edge-top-background, var(--sheet)); overscroll-behavior: none;   /* padding 0: a host page wrapper (e.g. the Claude preview) may pad :root by the safe areas */
   transition: background-color var(--dur) var(--ease-ios); }
 body {
@@ -1093,8 +1104,11 @@ html.intro-edges .edge-top, html.intro-edges .edge-bottom { visibility: hidden; 
 /* …and the screen arriving from (or going back to) the intro brings its own colour up into that band,
    so the photo never shows above another screen during the push. */
 html.intro-edges .screen:not(.is-video-intro)::before { content: ""; position: absolute; left: 0; right: 0; bottom: 100%;
-  height: env(safe-area-inset-top, 0px); background: inherit; pointer-events: none; }
-html.intro-edges .sheet { overflow: visible; -webkit-clip-path: inset(calc(-1 * env(safe-area-inset-top, 0px)) 0 0 0); clip-path: inset(calc(-1 * env(safe-area-inset-top, 0px)) 0 0 0); }
+  height: var(--top-reach); background: inherit; pointer-events: none; }
+/* the Terms sheet waits BELOW the page (translateY 100%); while the sheet is unclipped it would make the
+   page taller, so it is out of the layout until the intro is gone (it is never used from the intro) */
+html.intro-edges .screen.modal:not(.is-current) { display: none; }
+html.intro-edges .sheet { overflow-x: clip; overflow-y: visible; -webkit-clip-path: inset(calc(-1 * var(--top-reach)) 0 0 0); clip-path: inset(calc(-1 * var(--top-reach)) 0 0 0); }   /* overflow-x: clip — the screens waiting off to the side never widen the page */
 .app.intro-bleed { max-width: none; }
 .app.intro-bleed .screen.is-video-intro .content,
 .app.intro-bleed .screen.is-video-intro .footer { width: 100%; max-width: 430px; margin-left: auto; margin-right: auto; }
@@ -1166,7 +1180,7 @@ html.intro-edges .sheet { overflow: visible; -webkit-clip-path: inset(calc(-1 * 
    so the photo layer reaches up by exactly that inset — its top is the physical top of the screen.
    The sheet lets it through only while the intro is on screen (html.intro-edges, below). The text,
    the button and the screen box itself do not move. */
-.is-show { position: absolute; left: 0; right: 0; bottom: 0; top: calc(-1 * env(safe-area-inset-top, 0px)); z-index: 0; overflow: hidden; background: #000; pointer-events: none; }
+.is-show { position: absolute; left: 0; right: 0; bottom: 0; top: calc(-1 * var(--top-reach)); z-index: 0; overflow: hidden; background: #000; pointer-events: none; }
 .is-fit { position: absolute; left: 0; top: 0; width: 851px; height: 1848px; transform-origin: 0 0; }
 .is-scene { position: absolute; inset: 0; opacity: 0; will-change: opacity; }
 .is-zoom { position: absolute; inset: 0; transform-origin: 425.5px 924px; will-change: transform; backface-visibility: hidden; }
@@ -1489,8 +1503,9 @@ const MASTER_DEFAULTS = {
    1.4.7  Safari 26 edges: strips are real fixed elements (not ::after) · Terms + client terms: bottom edge = the sheet colour · diagnostic mode (?diag=1)
    1.4.8  Intro photos behind the status bar: the slideshow layer reaches the physical top (top safe area), text and button unchanged
    1.4.9  Typing: native caret hidden while a focused field slides in (no trailing / jump) · pass name updated once per frame
-   1.5.0  Intro: three rotating hero titles (2.5 s + 0.4 s, independent of the slideshow), fixed title box */
-const ALARA_MASTER_VERSION = "1.5.0";
+   1.5.0  Intro: three rotating hero titles (2.5 s + 0.4 s, independent of the slideshow), fixed title box
+   1.5.1  iPhone Safari: page band behind the status bar (document kept scrolled by --top-bleed) · intro sheet clips sideways (page no longer 2× wide) */
+const ALARA_MASTER_VERSION = "1.5.1";
 
 /* ---------- Active client: clients/<slug>/config.js → clientConfig ----------
    A client config has only the simple fields below (plus an optional "advanced" block that can
@@ -1555,6 +1570,22 @@ document.title = clientConfig.clientName + " · Pase Digital";
 /* ---------- Device detection ---------- */
 const ua = navigator.userAgent || "";
 const isIOS = /iPhone|iPad|iPod/i.test(ua) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+/* Status-bar bleed (see the CSS): iOS Safari tabs only; ?bleed=0 turns it off for comparison. */
+const TOP_BLEED = 62;
+const topBleed = isIOS && !(navigator.standalone || (window.matchMedia && matchMedia("(display-mode: standalone)").matches)) && !/[?&]bleed=0\b/.test(location.search);
+const bleedY = () => topBleed ? TOP_BLEED : 0;
+function holdBleedScroll() {   // the document stays scrolled by exactly the bleed (keyboard handling has its own, below)
+  if (!topBleed || document.documentElement.classList.contains("kb-open")) return;
+  if (Math.abs(window.scrollY - TOP_BLEED) > 0.5 || window.scrollX) window.scrollTo(0, TOP_BLEED);
+}
+if (topBleed) {
+  document.documentElement.classList.add("top-bleed");
+  holdBleedScroll();
+  window.addEventListener("scroll", holdBleedScroll, { passive: true });
+  window.addEventListener("resize", holdBleedScroll);
+  window.addEventListener("pageshow", holdBleedScroll);
+  window.addEventListener("load", holdBleedScroll);
+}
 const isAndroid = /Android/i.test(ua);
 const isMobileDevice = isIOS || isAndroid || /Mobi|Tablet|Silk|Kindle|BlackBerry|Opera Mini|IEMobile/i.test(ua);
 const walletLabel = isIOS ? "Agregar a Apple Wallet" : isAndroid ? "Agregar a Google Wallet" : "Agregar a Wallet";
@@ -4052,7 +4083,9 @@ function syncViewport() {
   const changed = keyboardOpen !== app.classList.contains("kb");
   app.classList.toggle("kb", keyboardOpen);
   document.documentElement.style.setProperty("--app-h", keyboardOpen ? Math.round(vv.height) + "px" : "100%");
-  if (keyboardOpen && (window.scrollY || vv.offsetTop)) window.scrollTo(0, 0);
+  document.documentElement.classList.toggle("kb-open", keyboardOpen);
+  if (keyboardOpen && (window.scrollY !== bleedY() || vv.offsetTop)) window.scrollTo(0, bleedY());
+  if (!keyboardOpen) holdBleedScroll();
   if (changed || keyboardOpen) { measureStage(); setPassState(passStateFor(currentIdx()), { instant: !changed }); lastSheetH = sheet.clientHeight; return; }
   // Safari showing/hiding its toolbars (no keyboard): follow the real visible height.
   if (!keyboardOpen && Math.abs(sheet.clientHeight - lastSheetH) > 1) {
@@ -4062,7 +4095,7 @@ function syncViewport() {
 }
 if (vv) {
   vv.addEventListener("resize", syncViewport);
-  vv.addEventListener("scroll", () => { if (app.classList.contains("kb") && (window.scrollY || vv.offsetTop)) window.scrollTo(0, 0); });
+  vv.addEventListener("scroll", () => { if (app.classList.contains("kb") && (window.scrollY !== bleedY() || vv.offsetTop)) window.scrollTo(0, bleedY()); });
 }
 // Leaving a field (Continue, Done, tapping away) must never leave a stale keyboard layout behind.
 sheet.addEventListener("focusout", () => requestAnimationFrame(() => { if (!fieldFocused() && app.classList.contains("kb")) syncViewport(); }));
@@ -4314,7 +4347,7 @@ pantalla ${sw(d.screenBg)}${d.screenBg}
 franja ↑ ${sw(d.stripTop)}${d.stripTop}  ↓ ${sw(d.stripBottom)}${d.stripBottom}
 theme-color ${d.theme} <i>(Safari 26 lo ignora)</i>
 innerHeight ${d.innerHeight} · visualViewport ${d.vvHeight} (offset ${d.vvOffsetTop})
-clientHeight ${d.clientHeight} · scroll documento <span class="${d.scrollY ? "bad" : ""}">${d.scrollY}</span> · alto doc ${d.docScrollH}
+clientHeight ${d.clientHeight} · scroll documento <span class="${d.scrollY !== bleedY() ? "bad" : ""}">${d.scrollY}</span> (esperado ${bleedY()}) · alto doc ${d.docScrollH}
 scroll interno ${d.innerScroll}
 safe-area ↑${d.safe[0]} ↓${d.safe[1]} · standalone ${d.standalone} · oscuro ${d.dark}
 Fijos/sticky en los bordes:
