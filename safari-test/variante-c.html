@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Variante C — fondo del documento</title>
+<style>
+html{margin:0;height:100%;background:#000 url(foto.jpg) center/cover no-repeat}
+body{margin:0;height:100%;background:transparent;display:flex;align-items:center}
+.info{font:500 13px/1.45 -apple-system,system-ui,sans-serif;color:#fff;background:rgba(0,0,0,.62);border-radius:14px;padding:12px 14px;width:78%;margin:0 auto}
+.info b{font-size:15px}.info code{font:12px ui-monospace,Menlo,monospace;color:#FFD60A}
+</style>
+</head>
+<body>
+<div class="info"><b>Variante C — fondo del documento</b><br>Foto como fondo del propio documento (html); el contenido es transparente. La página no se desplaza.<br><span id="nums"></span></div>
+<script>
+(function(){var p=document.createElement('div');p.style.cssText='position:absolute;left:0;top:0;width:0;height:0;visibility:hidden;padding-top:env(safe-area-inset-top,0px)';document.body.appendChild(p);
+function u(){var el=document.getElementById('nums');if(!el)return;el.innerHTML='safe-area arriba: <code>'+parseFloat(getComputedStyle(p).paddingTop)+'</code><br>innerHeight: <code>'+innerHeight+'</code> · pantalla: <code>'+screen.height+'</code><br>scroll: <code>'+Math.round(scrollY)+'</code>';}
+u();addEventListener('scroll',u,{passive:true});addEventListener('resize',u);setInterval(u,500);})();
+</script>
+</body>
+</html>
