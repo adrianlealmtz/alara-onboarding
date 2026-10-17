@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#000000">
 <title>Pase Digital</title>
-<meta name="alara-master-version" content="1.5.2">
+<meta name="alara-master-version" content="1.5.3">
 <script>
 /* =========================================================
    ALARA MASTER TEMPLATE — client loader.
@@ -1165,6 +1165,7 @@ html.intro-edges .sheet { overflow-x: clip; overflow-y: visible; -webkit-clip-pa
          .is-scene ×3   opacity: dip to black between photos (never a crossfade)
            .is-zoom       the Ken Burns zoom — ONE transform shared by the photo and its pass
              img + .is-pass (the pass, mapped onto the phone screen with a matrix3d homography)
+       .is-top    fixed top fade into the black of Safari's status-bar band
        .is-shade  fixed bottom gradient for the text (does not fade with the photos)
    Only opacity and transform animate (Web Animations, created once, looping forever). */
 /* Full-bleed: the page surface (.sheet) starts below the top safe area (the status bar in Safari 26),
@@ -1178,6 +1179,14 @@ html.intro-edges .sheet { overflow-x: clip; overflow-y: visible; -webkit-clip-pa
 .is-zoom > img { position: absolute; left: 0; top: 0; width: 851px; height: 1848px; display: block; }
 .is-pass { position: absolute; left: 0; top: 0; width: 300px; transform-origin: 0 0; container-type: inline-size; backface-visibility: hidden; }
 .is-pass .pass { width: 100%; box-shadow: 0 0 0 0.5px rgba(255,255,255,0.10); }
+/* Top fade: Safari paints the band behind the status bar itself, in the page colour (black on the
+   intro) — a page cannot draw there at scroll 0. The top of the photos fades into that same black,
+   so the band reads as part of the image instead of a cut. Fixed (does not fade with the photos);
+   reaches from the top of the layer (incl. any top safe area) to just above the phones. */
+.is-top { position: absolute; left: 0; right: 0; top: 0; z-index: 1; pointer-events: none;
+  height: calc(var(--top-reach) + clamp(88px, 15vh, 140px));
+  background: linear-gradient(to bottom, #000 0%, rgba(0,0,0,0.86) 14%, rgba(0,0,0,0.62) 32%, rgba(0,0,0,0.36) 54%,
+    rgba(0,0,0,0.15) 76%, rgba(0,0,0,0.04) 91%, rgba(0,0,0,0) 100%); }
 .is-shade { position: absolute; left: 0; right: 0; bottom: 0; top: var(--shade-top, 40%);
   background: linear-gradient(to bottom, rgba(0,0,0,0) 0%, rgba(0,0,0,0.18) 14%, rgba(0,0,0,0.42) 28%, rgba(0,0,0,0.66) 42%,
     rgba(0,0,0,0.84) 56%, rgba(0,0,0,0.95) 70%, #000 82%); }
@@ -1496,8 +1505,9 @@ const MASTER_DEFAULTS = {
    1.4.9  Typing: native caret hidden while a focused field slides in (no trailing / jump) · pass name updated once per frame
    1.5.0  Intro: three rotating hero titles (2.5 s + 0.4 s, independent of the slideshow), fixed title box
    1.5.1  iPhone Safari: page band behind the status bar (document kept scrolled by --top-bleed) · intro sheet clips sideways (page no longer 2× wide)
-   1.5.2  Status-bar bleed (62px scroll) reverted; the page-width fix of 1.5.1 is kept */
-const ALARA_MASTER_VERSION = "1.5.2";
+   1.5.2  Status-bar bleed (62px scroll) reverted; the page-width fix of 1.5.1 is kept
+   1.5.3  Intro: top fade into black, so Safari's status-bar band (black) blends with the photos */
+const ALARA_MASTER_VERSION = "1.5.3";
 
 /* ---------- Active client: clients/<slug>/config.js → clientConfig ----------
    A client config has only the simple fields below (plus an optional "advanced" block that can
@@ -2198,7 +2208,7 @@ function buildIntroShow() {
     zoom.append(img, pass); scene.append(zoom); fit.append(scene);
     introShow.scenes.push({ cfg, scene, zoom, img, pass });
   });
-  root.append(fit, el("div", "is-shade"));
+  root.append(fit, el("div", "is-top"), el("div", "is-shade"));
   introShow.root = root; introShow.fit = fit;
   return root;
 }
