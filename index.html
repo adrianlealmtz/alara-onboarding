@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#000000">
 <title>Pase Digital</title>
-<meta name="alara-master-version" content="1.6.1">
+<meta name="alara-master-version" content="1.7.0">
 <script>
 /* =========================================================
    ALARA MASTER TEMPLATE — client loader.
@@ -25,16 +25,14 @@
   document.write('<script src="' + window.ALARA_CLIENT_BASE + 'config.js"><\/script>');   // parser-blocking: config is ready before the app runs
 })();
 </script>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap">
 <style>
 /* Layout: a fullscreen white web page (no global sheet, no gray backdrop, no rounded top).
    Screens push-slide inside the page; a persistent Wallet-pass stage sits above them,
    centered, while every screen's text and controls share one left-aligned column. */
 :root {
   --outer: #FFFFFF;
-  --sheet: #F0F0F7;          /* page background of every light screen (iOS grouped bg); html, body, Safari edges follow it */
+  --sheet: #F2F2F7;          /* visual / hero area (iOS grouped bg): pass, mockups, illustrations; html, body and the top Safari edge follow it */
+  --content-bg: #FFFFFF;     /* content surface: titles, text, fields and buttons (Apple Setup / Wallet sheets) */
   --surface: #FFFFFF;
   --fg: #1D1D1F;
   --fg-2: #6E6E73;
@@ -66,7 +64,10 @@
   --hnr-label: #8E8E93;
   --hnr-fill: #E8F1FE;
   --success: #34C759;
-  --font: "Inter", -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", Arial, sans-serif;
+  /* UI typography: Apple's system font (SF Pro Text / Display, picked by size on iPhone, iPad and Mac).
+     The SF font files are not embedded: Apple's licence allows them only for mock-ups, not for
+     redistribution on a website. Other platforms fall back to their own system UI font. */
+  --font: -apple-system, BlinkMacSystemFont, system-ui, "Helvetica Neue", Arial, sans-serif;
   /* Pass typography: Apple's SF faces through the system stack — no Inter inside the pass. */
   --pass-display: "SF Pro Display", "SF UI Display", -apple-system, BlinkMacSystemFont, "Helvetica Neue", Helvetica, Arial, sans-serif;
   --pass-mono: "SF Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
@@ -84,7 +85,7 @@
 }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
-    --outer: #1C1C1E; --sheet: #1C1C1E; --surface: #1C1C1E; --fg: #F5F5F7; --fg-2: #98989D; --sub: #8E8E93;
+    --outer: #1C1C1E; --sheet: #1C1C1E; --surface: #1C1C1E; --content-bg: #1C1C1E; --fg: #F5F5F7; --fg-2: #98989D; --sub: #8E8E93;
     --blue: #0A84FF; --border: #38383A; --sep: #38383A; --chev: #48484A; --row-press: #2C2C2E; --error: #FF453A;
     --hairline: rgba(255,255,255,0.08); --dim: rgba(0,0,0,0.35); --push-shadow: rgba(0,0,0,0.5);
     --back-bg: #2C2C2E; --back-border: #3A3A3C; --back-fg: #F5F5F7;
@@ -96,7 +97,7 @@
   }
 }
 :root[data-theme="dark"] {
-  --outer: #1C1C1E; --sheet: #1C1C1E; --surface: #1C1C1E; --fg: #F5F5F7; --fg-2: #98989D; --sub: #8E8E93;
+  --outer: #1C1C1E; --sheet: #1C1C1E; --surface: #1C1C1E; --content-bg: #1C1C1E; --fg: #F5F5F7; --fg-2: #98989D; --sub: #8E8E93;
   --blue: #0A84FF; --border: #38383A; --sep: #38383A; --chev: #48484A; --row-press: #2C2C2E; --error: #FF453A;
   --hairline: rgba(255,255,255,0.08); --dim: rgba(0,0,0,0.35); --push-shadow: rgba(0,0,0,0.5);
   --back-bg: #2C2C2E; --back-border: #3A3A3C; --back-fg: #F5F5F7;
@@ -121,7 +122,6 @@ body {
   font-family: var(--font);
   -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale;
   text-rendering: optimizeLegibility;
-  font-feature-settings: "cv11", "ss01";
 }
 
 /* =========================================================
@@ -205,6 +205,12 @@ html.edge-wipe .edge-top, html.edge-wipe .edge-bottom { visibility: visible !imp
 .screen.is-under::after { opacity: 1; }
 .screen.is-moving  { visibility: visible; }
 .screen.no-trans, .screen.no-trans::after { transition: none !important; }
+/* Two surfaces, like Apple's native sheets: the visual area (pass / illustration) on --sheet and,
+   from the bottom of the pass stage down to the bottom edge, a full-width white content surface
+   (title, text, fields, buttons). --surface-y = the stage slot's bottom on that screen (set with the
+   layout), so the line sits exactly where the pass is cut and travels with its screen. */
+.screen.has-surface { background: linear-gradient(to bottom, var(--sheet) var(--surface-y, 100%), var(--content-bg) var(--surface-y, 100%)); }
+.screen.discover { background: var(--content-bg); }   /* text-first page, no illustration area */
 
 /* Shared left-aligned content column (title, subtitle, field, review rows) */
 .content {
@@ -371,6 +377,7 @@ html.edge-wipe .edge-top, html.edge-wipe .edge-bottom { visibility: visible !imp
   border-top-color: #E7E7E9; border-bottom-color: #D6D6D9;
   box-shadow: inset 0 1px 0 rgba(255,255,255,0.95), inset 0 -1px 0 rgba(255,255,255,0.7), 0 1px 3px rgba(0,0,0,0.05);
 }
+.secondary { font-weight: 500; }   /* secondary actions: Medium (primary: Semibold) */
 .black { border: 0; background: var(--black-btn); color: #FFFFFF; }
 .black .wallet-icon { width: 27px; height: auto; flex: 0 0 auto; display: block; }
 .primary:active { filter: brightness(0.93); transform: scale(0.99); }
@@ -413,13 +420,13 @@ html.edge-wipe .edge-top, html.edge-wipe .edge-bottom { visibility: visible !imp
   height: calc(var(--stage-top) + var(--stage-h) - var(--stage-clip-top));
   overflow: hidden; pointer-events: none;
   transition: height var(--dur) var(--ease-ios), opacity 260ms ease;
-  -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - 18px), transparent);
-          mask-image: linear-gradient(to bottom, #000 calc(100% - 18px), transparent);
+  /* no bottom fade: the stage ends exactly where the white content surface begins (a clean cut, as
+     in Apple's sheets — a fade here would show the grey visual area as a band under the mockup) */
 }
 .app.kb .stage {
   transition: none;
-  -webkit-mask-image: linear-gradient(to bottom, transparent, #000 14px, #000 calc(100% - 14px), transparent);
-          mask-image: linear-gradient(to bottom, transparent, #000 14px, #000 calc(100% - 14px), transparent);
+  -webkit-mask-image: linear-gradient(to bottom, transparent, #000 14px);
+          mask-image: linear-gradient(to bottom, transparent, #000 14px);
 }
 /* During the intro the stage keeps clipping (and its soft bottom fade). Letting it overflow
    exposed the mockup's white bottom-fade layer over the welcome title and subtitle. */
@@ -444,7 +451,8 @@ html.edge-wipe .edge-top, html.edge-wipe .edge-bottom { visibility: visible !imp
   /* visible edge on the white Setup Assistant sheet */
   box-shadow: 0 0 0 1px var(--mock-edge), 0 2px 6px var(--mock-shadow-s), 0 16px 40px var(--mock-shadow);
 }
-.mock-bg::after {           /* soft bottom fade into the sheet; also covers the shadow beneath */
+.mock-bg::after {           /* (retired with the white content surface: the mockup is cut cleanly at the surface line) */
+  display: none;
   content: ""; position: absolute; left: -48px; right: -48px; bottom: -56px; height: 80px;
   background: linear-gradient(to bottom, transparent, var(--sheet) 30%);
   pointer-events: none;
@@ -1563,8 +1571,9 @@ const MASTER_DEFAULTS = {
    1.5.3  Intro: top fade into black, so Safari's status-bar band (black) blends with the photos
    1.5.4  Intro <-> Nombre: Safari's top band switches colour on the first frame (no background transition) · edge strips travel with the arriving / leaving screen (no late grey band)
    1.6.0  New Intro hero 1 photo + recalibrated pass (hero 2/3 and framing unchanged) · passTechnology "NFC" | "QR" (default NFC) · QR education screen (two iPhones, demo QR, scanner, blue check) in the NFC screen's slot · QR passes carry no NFC symbol
-   1.6.1  Intro: new photos for hero 1 (cushion) and hero 2 (wood) with recalibrated passes · hero 3, framing, timing and zoom unchanged */
-const ALARA_MASTER_VERSION = "1.6.1";
+   1.6.1  Intro: new photos for hero 1 (cushion) and hero 2 (wood) with recalibrated passes · hero 3, framing, timing and zoom unchanged
+   1.7.0  Apple surfaces: visual area on #F2F2F7, full-width white content surface from the pass cut to the bottom (Safari bottom edge white) · UI font = Apple system font (SF on Apple devices; SF files not embedded per licence; Inter download removed) · secondary buttons Medium */
+const ALARA_MASTER_VERSION = "1.7.0";
 
 /* ---------- Active client: clients/<slug>/config.js → clientConfig ----------
    A client config has only the simple fields below (plus an optional "advanced" block that can
@@ -1622,7 +1631,7 @@ function buildClientConfig(c) {
   return cfg;
 }
 if (!window.ALARA_CLIENT) {                          // unknown route: no config for that client
-  document.body.innerHTML = '<p style="font:500 17px/1.4 Inter,system-ui,sans-serif;color:#6E6E73;text-align:center;padding:40vh 24px 0">Este enlace no está disponible.</p>';
+  document.body.innerHTML = '<p style="font:500 17px/1.4 -apple-system,BlinkMacSystemFont,system-ui,sans-serif;color:#6E6E73;text-align:center;padding:40vh 24px 0">Este enlace no está disponible.</p>';
   throw new Error("Alara: no client config for /" + (window.ALARA_CLIENT_SLUG || ""));
 }
 const clientConfig = buildClientConfig(window.ALARA_CLIENT);
@@ -2155,7 +2164,8 @@ applyPassConfig(clientConfig.pass);
 const SAFARI_EDGES = {
   launch:        { topBackground: "#000000",      bottomBackground: "#000000",      themeColor: "#000000" },   // intro: pure black
   premium:       { topBackground: "#0B0B0B",      bottomBackground: "#0B0B0B",      themeColor: "#0B0B0B" },   // membership screens
-  page:          { topBackground: "var(--sheet)", bottomBackground: "var(--sheet)", themeColor: "var(--sheet)" },
+  page:          { topBackground: "var(--sheet)", bottomBackground: "var(--content-bg)", themeColor: "var(--sheet)" },   // grey visual area on top, white content surface at the bottom
+  content:       { topBackground: "var(--content-bg)", bottomBackground: "var(--content-bg)", themeColor: "var(--content-bg)" },   // all-white page (Descubre Alara)
   sheetOverPage: { topBackground: "dim(var(--sheet), 0.14)", bottomBackground: "var(--surface)", themeColor: "dim(var(--sheet), 0.14)" }   // top: the dimmed page above the sheet · bottom: the sheet itself
 };
 function resolveEdgeColor(v) {
@@ -2181,7 +2191,7 @@ function setSafariEdgeBackground({ topBackground, bottomBackground, themeColor }
 }
 function safariEdgesFor(sc) {
   if (sc.edges) return typeof sc.edges === "string" ? SAFARI_EDGES[sc.edges] : sc.edges;
-  return SAFARI_EDGES[sc.videoIntro ? "launch" : (sc.modal || sc.panel) ? "sheetOverPage" : "page"];   // client terms (panel) = same sheet as the Alara terms
+  return SAFARI_EDGES[sc.videoIntro ? "launch" : (sc.modal || sc.panel) ? "sheetOverPage" : sc.discover ? "content" : "page"];   // client terms (panel) = same sheet as the Alara terms
 }
 function useSafariEdgeBackground(i) { setSafariEdgeBackground(safariEdgesFor(screens[i])); }
 // a light/dark theme switch changes var(--sheet): re-resolve for the current screen
@@ -2901,6 +2911,7 @@ const screenEls = screens.map((s, i) => {
   }
 
   const content = el("div", "content");
+  if (!s.videoIntro) form.classList.add("has-surface");   // visual area on grey, content on the white surface
   const spacer = el("div", "stage-spacer");    // the persistent pass stage sits over this slot
   content.append(spacer);
   let confirmEl = null;
@@ -3488,7 +3499,7 @@ function measureStage() {
   r.setProperty("--stage-clip-top", (kb ? top : 0) + "px");
   r.setProperty("--stage-top", top + "px");
   r.setProperty("--mock-w", Math.round(C) + "px");
-  screenEls.forEach((s, i) => s.spacer.style.height = per[i] + "px");
+  screenEls.forEach((s, i) => { s.spacer.style.height = per[i] + "px"; s.form.style.setProperty("--surface-y", (top + per[i]) + "px"); });
   applyStageHeight();
   fitPassName();
   fitDemo(); fitWalletDataDemo(); fitIntroVisual(); fitFeaturedDemo(); fitPremium();
