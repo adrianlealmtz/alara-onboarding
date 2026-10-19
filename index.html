@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#000000">
 <title>Pase Digital</title>
-<meta name="alara-master-version" content="1.10.5">
+<meta name="alara-master-version" content="1.10.6">
 <script>
 /* =========================================================
    ALARA MASTER TEMPLATE — client loader.
@@ -837,6 +837,9 @@ html.edge-wipe .edge-top, html.edge-wipe .edge-bottom { visibility: visible !imp
 @keyframes antShow { from { opacity: 0; } to { opacity: 1; } }
 @keyframes antGrow { from { stroke-dashoffset: 0.999; } to { stroke-dashoffset: 0; } }
 .wd-path { margin: 10px 0 0; font: 500 14px/1.4 var(--font); color: var(--fg-2); letter-spacing: -0.1px; }
+/* The cellular-data box spans the screen minus a 16px safety margin per side (not the text column), so
+   the large close-up iPhone fits whole, side to side, without having to shrink. */
+.wd-demo { margin-left: calc(16px - var(--gutter)); width: calc(100% + 2 * (var(--gutter) - 16px)); }
 .wd-zoom { position: absolute; inset: 0; transform: scale(2.25); transform-origin: 150px 22px; pointer-events: none; }   /* close-up: 1.8 × 1.25; the lower phone leaves the frame under the fade */
 .wd-phone { top: 22px; }
 .wd-screen { background: #F2F2F7; }
@@ -1676,8 +1679,9 @@ const MASTER_DEFAULTS = {
    1.10.2 Pass Details mockup: SF Display (opsz 28) on every text, client name Bold · menu below the Dynamic Island
    1.10.3 Feature flag enablePassDetailsScreen (false): Pass Details kept in the source, not in the flow
    1.10.4 Fix: mockups shrinking on real iPhones — belowSpacer() counted the empty space under the text, so each measureStage() (keyboard / Safari toolbar resizes) shrank the shared mockup; now measured from the real content (idempotent)
-   1.10.5 Demo / preview mode no longer restores a locked registration on load (the Artifact and standalone HTML always start at the Intro); production keeps the device-local restore */
-const ALARA_MASTER_VERSION = "1.10.5";
+   1.10.5 Demo / preview mode no longer restores a locked registration on load (the Artifact and standalone HTML always start at the Intro); production keeps the device-local restore
+   1.10.6 Cellular-data mockup: scale also capped by the phone's own width + its box spans the screen minus 16px per side (no side cropping) */
+const ALARA_MASTER_VERSION = "1.10.6";
 
 /* ---------- Active client: clients/<slug>/config.js → clientConfig ----------
    A client config has only the simple fields below (plus an optional "advanced" block that can
@@ -4602,6 +4606,11 @@ function fitWalletDataDemo() {
     const rowBottom = (row.getBoundingClientRect().bottom - stage.getBoundingClientRect().top) / cur;   // stage units
     if (rowBottom > 0) s = Math.min(s, (box.clientHeight - 22) / rowBottom);
   }
+  // The close-up phone (140.8px × the .wd-zoom 2.25 = 316.8 stage px) is wider than the 300px stage, so
+  // fitting the stage to the box let ~8px per side fall outside the box (cut by its overflow / bottom
+  // mask) — visible as soon as the box got tall enough to scale the stage up. The scale is also capped
+  // by the phone's own width (+2px for its edge shadow), so the whole iPhone always fits side to side.
+  s = Math.min(s, (box.clientWidth - 2) / (140.8 * 2.25));
   stage.style.transform = `scale(${s.toFixed(3)})`;
 }
 function stopWalletToggle() { wd.timers.forEach(clearTimeout); wd.timers = []; if (wd.sw) wd.sw.classList.remove("on"); }
