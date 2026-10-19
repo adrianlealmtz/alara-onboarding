@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#000000">
 <title>Pase Digital</title>
-<meta name="alara-master-version" content="1.10.3">
+<meta name="alara-master-version" content="1.10.4">
 <script>
 /* =========================================================
    ALARA MASTER TEMPLATE — client loader.
@@ -1674,8 +1674,9 @@ const MASTER_DEFAULTS = {
    1.10.0 New iOS education screen "Descubre más sobre tu pase." (after Accesos rápidos): ··· → menu → Detalles del pase → details view with [CLIENT_NAME] and the client's configured contact / website / terms / info · config: clientWebsite, clientWhatsApp, clientTermsURL, clientAdditionalInfo, clientInfoIsDemo
    1.10.1 Pass Details icon = supplied detallesicon.png (as a mask, same blue and same line-by-line animation)
    1.10.2 Pass Details mockup: SF Display (opsz 28) on every text, client name Bold · menu below the Dynamic Island
-   1.10.3 Feature flag enablePassDetailsScreen (false): Pass Details kept in the source, not in the flow */
-const ALARA_MASTER_VERSION = "1.10.3";
+   1.10.3 Feature flag enablePassDetailsScreen (false): Pass Details kept in the source, not in the flow
+   1.10.4 Fix: mockups shrinking on real iPhones — belowSpacer() counted the empty space under the text, so each measureStage() (keyboard / Safari toolbar resizes) shrank the shared mockup; now measured from the real content (idempotent) */
+const ALARA_MASTER_VERSION = "1.10.4";
 
 /* ---------- Active client: clients/<slug>/config.js → clientConfig ----------
    A client config has only the simple fields below (plus an optional "advanced" block that can
@@ -3880,9 +3881,24 @@ function passStateFor(i) {
   if (id === "firstName" || id === "lastName") return "name-focused";
   return "complete";
 }
+/* Height the screen needs BELOW the pass stage: its real content (title, text, field…) + the footer.
+   Measured from the content's last child, NOT from content.scrollHeight: when the content doesn't fill
+   its flex box, scrollHeight is the box height, so the empty space under the text was counted as
+   "content" — and that space grows as the stage shrinks. Every measureStage() run (Safari's keyboard and
+   toolbar resizes fire dozens) then shrank the shared mockup a little more (~4px each), down to its
+   150px floor: the tiny passes / iPhones seen on a real iPhone. Now the result does not depend on the
+   stage's current size, so measuring again always gives the same answer. */
 function belowSpacer(i) {
   const { content, spacer, footer } = screenEls[i];
-  return content.scrollHeight - (spacer.offsetTop + spacer.offsetHeight) + footer.offsetHeight;
+  const spacerBottom = spacer.getBoundingClientRect().bottom;      // rects: also valid for SVG icons
+  let bottom = spacerBottom;
+  for (const n of content.children) {
+    if (n === spacer) continue;
+    const r = n.getBoundingClientRect(); if (!r.height && !r.width) continue;   // display:none / empty
+    bottom = Math.max(bottom, r.bottom + (parseFloat(getComputedStyle(n).marginBottom) || 0));
+  }
+  const padB = parseFloat(getComputedStyle(content).paddingBottom) || 0;
+  return bottom - spacerBottom + padB + footer.offsetHeight;
 }
 function measureStage() {
   const H = sheet.clientHeight, W = sheet.clientWidth;
