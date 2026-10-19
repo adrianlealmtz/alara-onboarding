@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#000000">
 <title>Pase Digital</title>
-<meta name="alara-master-version" content="1.10.4">
+<meta name="alara-master-version" content="1.10.5">
 <script>
 /* =========================================================
    ALARA MASTER TEMPLATE — client loader.
@@ -1675,8 +1675,9 @@ const MASTER_DEFAULTS = {
    1.10.1 Pass Details icon = supplied detallesicon.png (as a mask, same blue and same line-by-line animation)
    1.10.2 Pass Details mockup: SF Display (opsz 28) on every text, client name Bold · menu below the Dynamic Island
    1.10.3 Feature flag enablePassDetailsScreen (false): Pass Details kept in the source, not in the flow
-   1.10.4 Fix: mockups shrinking on real iPhones — belowSpacer() counted the empty space under the text, so each measureStage() (keyboard / Safari toolbar resizes) shrank the shared mockup; now measured from the real content (idempotent) */
-const ALARA_MASTER_VERSION = "1.10.4";
+   1.10.4 Fix: mockups shrinking on real iPhones — belowSpacer() counted the empty space under the text, so each measureStage() (keyboard / Safari toolbar resizes) shrank the shared mockup; now measured from the real content (idempotent)
+   1.10.5 Demo / preview mode no longer restores a locked registration on load (the Artifact and standalone HTML always start at the Intro); production keeps the device-local restore */
+const ALARA_MASTER_VERSION = "1.10.5";
 
 /* ---------- Active client: clients/<slug>/config.js → clientConfig ----------
    A client config has only the simple fields below (plus an optional "advanced" block that can
@@ -2942,7 +2943,8 @@ function retryPassCreation() {
      Idempotency-Key. There is no way back to the form; a correction needs an explicit support flow.
    • Once the pass exists, the navigation stack is sealed at "Cómo funciona tu pase": the education
      screens can go back among themselves, never across the confirmation point.
-   • Persistence (this device only): the locked registration is kept in localStorage for 24 h
+   • Persistence (this device only, production mode with the pass API only — the demo never stores it):
+     the locked registration is kept in localStorage for 24 h
      (REG_TTL_MS), per client, so a reload, a restored Safari session or the link opened in another
      tab comes back to the post-confirmation flow instead of an editable form. ?nuevo=1 starts a new
      registration on this device (testing). This is NOT a server-side lock: another device, a
@@ -2969,7 +2971,7 @@ function regLockedOut(i) {
 }
 function regStorageKey() { return "alara.registration." + clientConfig.id; }
 function persistRegistration() {
-  if (!regLocked()) return;
+  if (!regLocked() || !PassApi.live()) return;     // stored only with the real pass API (see restoreRegistration)
   const cur = screens[currentIdx()];
   try {
     localStorage.setItem(regStorageKey(), JSON.stringify({
@@ -3030,6 +3032,10 @@ function sealNavigation() {
 }
 /* Reload / restored session / another tab: comes back locked, on a valid post-confirmation screen. */
 function restoreRegistration() {
+  // DEMO / preview (no pass API): nothing is stored across page loads, so every visit — the Artifact,
+  // the standalone HTML, a reload — starts at the Intro, and the demo never pretends to a persistent
+  // lock that only a backend can guarantee. Within the page the lock works exactly the same.
+  if (!PassApi.live()) { try { localStorage.removeItem(regStorageKey()); } catch (_) {} return; }
   let saved = null;
   try {
     if (/[?&]nuevo=1\b/.test(location.search)) {                       // testing: start a new registration here
